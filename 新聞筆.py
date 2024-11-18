@@ -32,7 +32,7 @@ model = "meta/llama-3.1-405b-instruct"
 
 client = OpenAI(
   base_url = "https://integrate.api.nvidia.com/v1",
-  api_key = "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"
+  api_key = "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"
 )
 
 def extract_list_content(input_string):
@@ -72,7 +72,7 @@ def prettify_element(elem):
 def get_first_youtube_embed(query, model, max_retries = 3):
     prompt = f"""
     For this news article title: {query}
-    Generate me a short but concise youtube search query, such that optimally I can search of the exact issue in youtube results.
+    Generate me a short but concise youtube search query,(for example summarize the title into a main topic or short sentence, details can be ommited) such that optimally I can search of the exact issue in youtube results.
     The query can be in chinese or english. but make sure it is in moderate length that can get optimal search results.
     Return me a JSON object with single key "query", without premable and explanation.
     Again, only return me ONE JSON OBJECT with single key QUERY without premable and explanation.
@@ -93,6 +93,7 @@ def get_first_youtube_embed(query, model, max_retries = 3):
             refined_response += chunk.choices[0].delta.content
 
     modified_string = extract_json_content(refined_response)
+    print(modified_string)
     if isinstance(modified_string, dict):
         query = modified_string['query']
     else:
@@ -151,7 +152,7 @@ def fetch_news(rss_urls):
         for entry in feed.entries:
             # Check if the entry has a publication date
             if 'published_parsed' in entry:
-                if *entry.published_parsed:
+                if entry.published_parsed:
                     # Convert the published date to a datetime object
                     pub_date = datetime(*entry.published_parsed[:6])
                     # Only consider articles published within the last two weeks
@@ -177,7 +178,7 @@ def fetch_news(rss_urls):
                     if website_text:
                         word_count = len(website_text.split())
                         # Filter out articles that are too short or too long
-                        if word_count <= 300 or word_count >= 1300:
+                        if word_count <= 500 or word_count >= 1500:
                             continue
                
                 # Add the news item to the list
@@ -198,7 +199,7 @@ def count_newlines_exceeds_limit(text: str, limit: int = 5) -> bool:
     newline_count = text.count('\n')
     return newline_count > limit
 
-def search(query, max_results = 5):
+def search(query, max_results = 8):
     encoded_query = requests.utils.quote(query)
     url = f"https://www.google.com/search?q={encoded_query}&gl=hk"
 
@@ -251,14 +252,16 @@ def organize(word, description, results, model, max_retries=3):
     Web Search Context: {results}
 
     Summarize the search result.
-    As long as the search result is NOT 100 PERCENT SURE IT IS CORRECT (eg, do not contain the translations with brackets in Chinese), return me the original word in english.
+    As long as the search result is NOT 100 PERCENT SURE IT IS CORRECT (eg, do not contain the translations with brackets in Chinese), return me the original word as key-value pair.
     Otherwise, only return the MUST correct Chinese translation of that noun i needed (eg translation from Wikipedia).
     return me a JSON object that stores the original word and search result word in key-value pairs.
     REMEMBER: If there isn't a Chinese name found, return me the original name, do not phonetically translate or translate with the original word's english meaning.
-    Do not leave the key-value pair blank no matter what.
+    Do not leave the key-value pair blank in any cases. return same word as key-value pair if no correct translation match.
     if there is more than one translation, only return me one.
-    REMEMBER: the JSON returned has only ONE key-value pair. no need for other keys to label.
-    Return the JSON with ONE key-value pair with no preamble or explanation.
+    REMEMBER: the JSON returned has only ONE key-value pair. the JSON object has 1 key-value item ONLY.
+    REMEMBER: DO NOT translate the lyrics or official terms that are bracketed.
+    Return the JSON with ONE key-value pair with no preamble or explanation. 
+    YOU MUST ORGANIZE ME AN ANSWER. DO NOT RETURN NON JSON REPLIES.
     """
 
     retries = 0
@@ -298,11 +301,12 @@ def websearch(word, description, model, max_retries=3):
     Also, don't search entirely in Chinese, as this will not find the correct translation!
    
     Make sure the search query is not too long. (at most 5 chinese characters are maximum)
-    AGAIN: at most 5 chinese characters are maximum
-    AGAIN: make sure your chinese words in the query DOES MAKE SENSE.
+    AGAIN: at most 6 chinese characters are maximum
+    AGAIN: make sure your Chinese words in the query DOES MAKE SENSE.
     REMEMBER: prioritize the use of the translation of Wikipedia!! (inside brackets) If the search does not have Wikipedia, return the original word.
-    Return the JSON with a single key 'query' with no preamble or explanation.
-   
+    Return the JSON with a single key 'query' with no preamble or explanation. REMEMBER: the JSON returned has only ONE key-value pair with a single key 'query' with no preamble or explanation
+
+    AGAIN: at most 6 chinese characters.
     Word to transform into a query: {word}
     The description of this word: {description}
     """
@@ -450,7 +454,7 @@ def clean_title(title, extension, directory=None):
     # If no directory is provided, just return the file name
     return file_name
 
-def consideration_test(segment, dictionary, model):
+def consideration_test(title, segment, dictionary, model):
     full_article = ""
     prompt = f"""
     改寫並翻譯成日常用語繁體中文版本。
@@ -460,9 +464,12 @@ def consideration_test(segment, dictionary, model):
     身份：一個新聞作者想要帶資訊給讀者
     刪除所有作者自己的身份描述。（作者的家人名稱、工作地點、懷孕狀況等全部刪除），並改爲符合身份的描述。
     要求：把原文內容翻譯成繁體中文，不能自行創作，要詳細。翻譯時必須先了解整句話的意思，不要按字詞意思直接翻譯。
+    要求：如果翻譯不是必須，可以不用翻譯某些字詞。
     要求：改寫一切網站上的內容，包括文章作者的名字，變成一篇新聞作者想要帶資訊給讀者的文章。
     要求：不要使用「值得注意的是」，「另外」，「最後」，「總括來說」等連接詞。
     要求：公司名稱、藝人藝名、團體名稱，如果是英文名稱是廣為人知的，請不要翻譯（保留英文名稱），如要翻譯，請括號標註英文名稱。
+    要求：翻譯完請重新檢查文章是否通順，避免中英夾雜。
+    刪除不相關的資訊。這篇文章的標題是:{title}
 
     有一些名詞我已經透過網上搜尋得到正確翻譯，請先熟悉一下這些翻譯再給我一篇正確無誤的翻譯，請括號標註原文名稱（英文）。用括號標示本來（未翻譯）的名詞。如果是沒有翻譯對照的字，使用原文語言。
     名詞：{dictionary}
@@ -471,7 +478,7 @@ def consideration_test(segment, dictionary, model):
     現在處理這段文字：
     {segment}
 
-    如果該行文字是小標題，用<h2>來標記。
+    如果該行文字是小標題，用<h2>來標記。如果是不相關的內容，刪除不相關的資訊。這篇文章的標題是:{title}
     只回覆我中文的html，不需其它任何字。
     不要回覆我任何其它字，我只需要處理好的中文的html structure回覆。
     """
@@ -491,10 +498,53 @@ def consideration_test(segment, dictionary, model):
             if "no" not in chunk.choices[0].delta.content.lower():
                 print(chunk.choices[0].delta.content, end="")
                 full_article += chunk.choices[0].delta.content
-    full_article = recheck(full_article, model)
+    full_article = recheck(title, full_article, model)
     return full_article
 
-def recheck(article, model, max_retries=3, retry_delay=5):
+def engtit(website_text, model, max_retries=3, retry_delay=5):
+    full_article = ""
+    first_20_lines = "\n".join(website_text.splitlines()[:20])
+    prompt = f"""
+    the article: {first_20_lines}
+
+    refine the title of this article to me in chinese ONLY. no premable and explanations needed.
+    """
+
+    retries = 0
+    success = False
+
+    while retries < max_retries and not success:
+        try:
+            print(prompt)
+            completion = client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": prompt.strip()}],
+                temperature=0.2,
+                top_p=0.7,
+                max_tokens=8192,
+                stream=True
+            )
+
+            for chunk in completion:
+                if chunk.choices[0].delta.content is not None:
+                    content = chunk.choices[0].delta.content.encode('utf-8', errors='ignore').decode('utf-8')
+                    print(content, end="")
+                    full_article += content
+
+            success = True
+
+        except Exception as e:
+            print(f"Error: {e}")
+            retries += 1
+            if retries < max_retries:
+                print(f"Retrying in {retry_delay} seconds...")
+                time.sleep(retry_delay)
+            else:
+                print("Max retries reached. Moving to next segment.")
+
+    return full_article
+
+def recheck(title, article, model, max_retries=3, retry_delay=5):
     full_article = ""
     processes = split_article_into_segments(article, lines_per_segment=17)
 
@@ -507,13 +557,15 @@ def recheck(article, model, max_retries=3, retry_delay=5):
         - 格式的段落，比如整個<p> 只有一個 "---"，整個刪掉。
         - 圖片來源，記者報道等無關文章主旨的句子，整個刪掉。
         - 不相干的東西，如果與前文和文章主旨完全不相干，刪掉。
-        - 如果有部分內容是不相關的新聞，刪除該部分的內容。
+        - 如果有部分內容是不相關的新聞，刪除該部分的內容。這篇新聞的標題是: {title}
+        - 如有連結或相關宣傳，必須刪除，不能留下
         - 刪除「值得注意的是」，「另外」，「最後」，「總括來說」等連接詞。
 
         改寫：
         - 身份：我是一個香港新聞記者，專業，客觀
         - 不需要強調身份，但所有不符合這個設定的句子需要改寫成符合我身份的描述。原文作者的家人名稱、工作地點、懷孕狀況等全部刪除。
         - 全部改寫原文內容的句式（paraphrase），但保留原文的意思，以免誤導讀者。如果是內容有括號，括號內容需要保留。
+        - 不需進行任何翻譯。
         - 改寫必須合理，需要文句通順。
         - 如果內容許可，增加<ul> <ol> <table>等元素來協助描述。整理段落的內容來寫。
 
@@ -568,7 +620,7 @@ def titler(website_text, model, max_retries=3, delay=2):
             2. the news title should include the highlight theme of the news, instead of a short phrase.
             3. return me a single JSON object with a single key 'title' without a preamble and explanations.
             4. output in traditional Chinese.
-            AGAIN: NO preamble and explanation needed.
+            AGAIN: output a single JSON object with a single key 'title', NO preamble and explanation needed.
             """
 
             completion = client.chat.completions.create(
@@ -716,6 +768,96 @@ def get_bottom_items(rss_file_path):
     result = {item.find('title').text: item.find('link').text for item in bottom_items}    
     return result
 
+def append_to_news_sitemap(loc, title):
+    publication_name = "FamEchos"
+    language = "zh_TW"
+    file_path = 'news_sitemap.xml'
+
+    # Define the namespaces
+    sitemap_ns = "http://www.sitemaps.org/schemas/sitemap/0.9"
+    news_ns = "http://www.google.com/schemas/sitemap-news/0.9"
+
+    # Parse the existing sitemap.xml file
+    try:
+        tree = parse(file_path)
+        root = tree.getroot()
+
+        # Ensure namespaces are declared in the root element if not already present
+        if not root.tag == f"{{{sitemap_ns}}}urlset":
+            raise ValueError("Root element does not have the correct sitemap namespace.")
+        
+        # Check if the namespaces are declared
+        if sitemap_ns not in root.attrib or news_ns not in root.attrib:
+            root.attrib[f"xmlns"] = sitemap_ns
+            root.attrib[f"xmlns:news"] = news_ns
+
+    except FileNotFoundError:
+        # If file not found, create a new root element with the correct namespaces
+        root = Element("urlset", xmlns=sitemap_ns, **{"xmlns:news": news_ns})
+        tree = ElementTree(root)
+
+    # Create a new <url> element with the sitemap namespace
+    new_url = SubElement(root, "url")
+
+    # Add <loc> element
+    loc_element = SubElement(new_url, "loc")
+    loc_element.text = loc
+
+    # Add <news:news> element with the news namespace
+    news_element = SubElement(new_url, f"{{{news_ns}}}news")
+
+    # Add <news:publication> element
+    publication_element = SubElement(news_element, f"{{{news_ns}}}publication")
+
+    # Add <news:name> and <news:language> elements
+    name_element = SubElement(publication_element, f"{{{news_ns}}}name")
+    name_element.text = publication_name
+    language_element = SubElement(publication_element, f"{{{news_ns}}}language")
+    language_element.text = language
+
+    # Add <news:publication_date> element with the current time in Hong Kong timezone
+    hk_timezone = pytz.timezone('Asia/Hong_Kong')
+    current_time = datetime.now(hk_timezone)
+    publication_date_element = SubElement(news_element, f"{{{news_ns}}}publication_date")
+    publication_date_element.text = current_time.strftime('%Y-%m-%dT%H:%M:%S%z')
+    # Add a colon in the timezone offset for ISO 8601 compliance
+    publication_date_element.text = publication_date_element.text[:-2] + ':' + publication_date_element.text[-2:]
+
+    # Add <news:title> element
+    title_element = SubElement(news_element, f"{{{news_ns}}}title")
+    title_element.text = title
+
+    # Internal prettify function
+    def prettify_xml_tree(element, level=0):
+        """Prettifies the XML tree in place by adding indentation and newlines."""
+        indent = "\n" + level * "  "
+        if len(element):
+            if not element.text or not element.text.strip():
+                element.text = indent + "  "
+            for elem in element:
+                prettify_xml_tree(elem, level + 1)
+            if not elem.tail or not elem.tail.strip():
+                elem.tail = indent
+        else:
+            if not element.text or not element.text.strip():
+                element.text = ""
+            if level and (not element.tail or not element.tail.strip()):
+                element.tail = indent
+
+    # Prettify the XML structure
+    prettify_xml_tree(root)
+
+    # Convert the XML tree to a string
+    xml_str = tostring(root, encoding='unicode')
+
+    # Manual string replace to fix the namespace prefix issue
+    xml_str = xml_str.replace('ns0:', '').replace('ns1:', 'news:')
+
+    # Write the updated and formatted XML back to the file
+    with open(file_path, 'w', encoding='UTF-8') as file:
+        file.write('<?xml version="1.0" encoding="UTF-8"?>\n')
+        file.write(xml_str)
+
 def append_to_sitemap(loc, priority):
     # File path to the sitemap.xml
     file_path = 'sitemap.xml'
@@ -783,13 +925,14 @@ def get_current_hk_time():
 
 def write_file(file_path, content, title, source, category, model):
     url = "https://www.famechos.me/news/" + title + '.html'
+    jj = title
     with open(file_path, 'w', encoding='utf-8') as file:
         # Dynamic data for the schema
         schema_data = {
             "@context": "https://schema.org",
             "@graph": [
                 {
-                    "@type": "Article",
+                    "@type": "NewsArticle",
                     "headline": title,
                     "description": title,
                     "url": url,
@@ -854,8 +997,10 @@ def write_file(file_path, content, title, source, category, model):
         <meta name="referrer" content="origin">
 <meta name="apple-mobile-web-app-capable" content="yes"/>
         <meta name="apple-mobile-web-app-status-bar-style" content="black"/>
-        <meta name="apple-mobile-web-app-title" content="Avoir"/>
+        <meta name="apple-mobile-web-app-title" content="Famechos"/>
         <meta name="apple-touch-fullscreen" content="yes"/>
+        <link rel="icon" type="image/x-icon" href="https://www.famechos.me/img/famechos-icon.jpeg">
+        <link rel="shortcut icon" type="image/x-icon" href="https://www.famechos.me/img/famechos-icon.jpeg">
 
         <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3046601377771213"
      crossorigin="anonymous"></script>
@@ -1034,13 +1179,27 @@ def write_file(file_path, content, title, source, category, model):
             return processed_line and not (is_current_h2 and last_was_h2)
 
         last_was_h2 = False  # To track if the last processed line was an <h2>
- 
+
+        # Regular expression to match Chinese characters
+        chinese_char_regex = re.compile(r'[\u4e00-\u9fff]')
+
+        def count_chinese_characters(text):
+            """Count the number of Chinese characters in the given text."""
+            return len(chinese_char_regex.findall(text))
+        h = ""
         for line in lines:
             if line.strip():  # Ignore empty lines
                 processed_line, last_was_h2 = process_line(line, model, last_was_h2)
 
                 if should_append_header(processed_line, last_was_h2):
+                    h += processed_line
+                    h += '\n'
                     file.write(processed_line)
+
+        chinese_char_count = count_chinese_characters(h)
+
+        if chinese_char_count < 100:
+            return
 
         file.write('\n<p>資料來源：' + source + '</p>')
         file.write('\n</div><div class ="news-vid-outer">\n<div class="related-vid-text-outer title-bar ">\n')
@@ -1091,18 +1250,18 @@ def write_file(file_path, content, title, source, category, model):
           <p class="footer-right-text">每日為你提供最新、最全面的日韓資訊。</p>
         </div>
         <div class="footer-button-box">
-          <button class="facebook-btn footer-btn">
+          <a href="https://www.instagram.com/famechos/" target="_blank"><button class="facebook-btn footer-btn">
             <i class="bi bi-facebook footer-logo"></i>
-          </button>
-          <button class="ig-btn footer-btn">
+          </button></a>
+          <a href="https://www.instagram.com/famechos/" target="_blank"><button class="ig-btn footer-btn">
             <i class="bi bi-instagram footer-logo"></i>
-          </button>
-          <button class="x-btn footer-btn">
+          </button></a>
+          <a href="https://x.com/famechos_me" target="_blank"><button class="x-btn footer-btn">
             <i class="bi bi-twitter-x footer-logo"></i>
-          </button>
-          <button class="x-btn footer-btn">
-            <i class="bi bi-envelope-fill footer-logo"></i>
-          </button>
+          </button></a>
+          <a href="https://www.youtube.com/channel/UC6H4nvEk-IgsQCUvoUmWZMQ" target="_blank"><button class="x-btn footer-btn">
+            <i class="bi bi-youtube footer-logo"></i>
+          </button></a>
         </div>
       </div>
 
@@ -1145,6 +1304,7 @@ def write_file(file_path, content, title, source, category, model):
         file.write(r_news)
         file.write(last)
     append_to_sitemap(url, "0.90")
+    append_to_news_sitemap(url, jj)
     add_rss_item(f'{category.lower()}.xml', title, url, category, des)
     add_rss_item('rss.xml', title, url, category, des)
     commit_changes()
@@ -1170,10 +1330,11 @@ def parse_full_text(url, title, source, category, model, lines = 22):
         # Process each segment
         sample = process_segments(segments, model)
 
-        for segment in segments:
-            full_article += consideration_test(segment, sample, model)
-            full_article += "\n"
+        title = engtit(website_text, model)
 
+        for segment in segments:
+            full_article += consideration_test(title, segment, sample, model)
+            full_article += "\n"
         title = titler(full_article, model)
 
         file_path = clean_title(title, 'html', r"news")
@@ -1207,12 +1368,16 @@ def commit_changes():
         print(f"Error occurred during git push: {e}")
 
 rss_urls = [
+    ['https://jrocknews.com/feed', 'J Rock News', 'J-Pop'],
     ['https://www.koreaherald.com/common/rss_xml.php?ct=105', 'Korea Herald', 'K-Pop'],
     ['https://tokyocheapo.com/feed/', 'Tokyo Cheapo', 'Others'],
     ['https://www.koreatimes.co.kr/www/rss/entertainment.xml', 'TheKoreaTimes', 'K-Pop'],
     ['https://en.yna.co.kr/RSS/culture.xml', 'Yonhap News Agency', 'Drama'],
     ['https://j-generation.com/feed/', 'J-GENERATION', 'J-Pop'],
-    ['https://phoenixtalkspopculturejapan.wordpress.com/category/dramas/feed/', 'Phoenix Talks Pop Culture Japan', 'Drama']
+    ['https://phoenixtalkspopculturejapan.wordpress.com/category/dramas/feed/', 'Phoenix Talks Pop Culture Japan', 'Drama'],
+    ['https://jpopblog.com/feed/', 'Jpopblog.com', 'J-Pop'],
+    ['https://thesoulofseoul.net/feed/', 'The Soul of Seoul', 'Others'],
+    ['https://10mag.com/feed/', '10mag', 'Others']
 ]
 
 def main():
