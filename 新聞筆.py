@@ -1368,16 +1368,14 @@ def commit_changes():
         print(f"Error occurred during git push: {e}")
 
 rss_urls = [
-    ['https://jrocknews.com/feed', 'J Rock News', 'J-Pop'],
-    ['https://www.koreaherald.com/common/rss_xml.php?ct=105', 'Korea Herald', 'K-Pop'],
-    ['https://tokyocheapo.com/feed/', 'Tokyo Cheapo', 'Others'],
-    ['https://www.koreatimes.co.kr/www/rss/entertainment.xml', 'TheKoreaTimes', 'K-Pop'],
-    ['https://en.yna.co.kr/RSS/culture.xml', 'Yonhap News Agency', 'Drama'],
-    ['https://j-generation.com/feed/', 'J-GENERATION', 'J-Pop'],
-    ['https://phoenixtalkspopculturejapan.wordpress.com/category/dramas/feed/', 'Phoenix Talks Pop Culture Japan', 'Drama'],
-    ['https://jpopblog.com/feed/', 'Jpopblog.com', 'J-Pop'],
-    ['https://thesoulofseoul.net/feed/', 'The Soul of Seoul', 'Others'],
-    ['https://10mag.com/feed/', '10mag', 'Others']
+    ['https://www.technologyreview.com/feed/', 'MIT Technology Review', 'AI 科技'],
+    ['https://techcrunch.com/tag/artificial-intelligence/feed/', 'TechCrunch', 'AI 科技'],
+    ['https://www.uploadvr.com/feed/', 'UploadVR', 'AR 與 VR'],
+    ['https://www.roadtovr.com/feed/', 'Road to VR', 'AR 與 VR'],
+    ['https://www.iotforall.com/feed', 'IoT for All', 'IoT 物聯網'],
+    ['https://staceyoniot.com/feed/', 'Stacey on IoT', 'IoT 物聯網'],
+    ['https://www.coindesk.com/arc/outboundfeeds/rss/', 'CoinDesk', '區塊鏈與加密貨幣'],
+    ['https://cryptoslate.com/feed/', 'CryptoSlate', '區塊鏈與加密貨幣']
 ]
 
 def main():
