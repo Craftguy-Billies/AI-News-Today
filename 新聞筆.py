@@ -616,7 +616,7 @@ def titler(website_text, model, max_retries=3, delay=2):
             i want to write a news article for this article:
             {website_text}
 
-            1. I want a news article title that is clickbait enough, in moderate length and humanized, natural tone without overexaggeration.    
+            1. I want a news article title that is clickbait enough, in concise way with main keyword SEO optimized, natural tone without overexaggeration.    
             2. the news title should include the highlight theme of the news, instead of a short phrase.
             3. return me a single JSON object with a single key 'title' without a preamble and explanations.
             4. output in traditional Chinese.
